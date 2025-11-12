@@ -1,33 +1,37 @@
-// App.js
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import { makeRedirectUri } from "expo-auth-session";
 import { auth } from "./firebaseConfig";
-import { Platform } from "react-native";
-import * as Google from "expo-auth-session/providers/google";
-import { makeRedirectUri } from "expo-auth-session";
-import {
-    onAuthStateChanged,
-    signOut,
-    signInWithEmailAndPassword,
-    signInWithCredential,
-    GoogleAuthProvider,
-} from "firebase/auth";
+import { onAuthStateChanged, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 WebBrowser.maybeCompleteAuthSession();
+
+const googleConfig = Platform.select({
+    web: {
+        webClientId: "484810036899-09ai4reru5gui6bnpj05kfipnkpamttu.apps.googleusercontent.com",
+        redirectUri: makeRedirectUri({ useProxy: true }),
+        responseType: "id_token",
+        scopes: ["openid", "profile", "email"],
+        prompt: "select_account"
+    },
+    ios: { iosClientId: "", redirectUri: makeRedirectUri({ useProxy: true }) },
+    android: { androidClientId: "", redirectUri: makeRedirectUri({ useProxy: true }) },
+});
+
 
 export default function App() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [user, setUser] = useState(null);
 
-    // Vendos webClientId nga Google Cloud Console (OAuth 2.0 Client IDs -> Web)
-    const [request, response, promptAsync] = Google.useAuthRequest({
-        webClientId: "GOOGLE_WEB_CLIENT_ID",
-        redirectUri: makeRedirectUri({ useProxy: true }),
-    });
+    const [request, response, promptAsync] = Google.useAuthRequest(googleConfig);
+
+    useEffect(() => {
+        console.log("Auth request ready?", !!request);
+    }, [request]);
+
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (u) => setUser(u));
@@ -41,9 +45,12 @@ export default function App() {
             signInWithCredential(auth, cred)
                 .then(() => Alert.alert("Sukses", "U kyqe me Google!"))
                 .catch((e) => Alert.alert("Gabim", e.message));
+        } else if (response?.type === "error") {
+            console.error("Google response error:", response);
+            Alert.alert("Gabim", "Google auth dështoi.");
         }
     }, [response]);
-
+    // Email/Password
     const handleEmailLogin = async () => {
         try {
             await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -52,6 +59,12 @@ export default function App() {
             Alert.alert("Gabim", e.message);
         }
     };
+
+    // Shfaq butonin Google vetëm kur ka Client ID për platformën aktuale
+    const canUseGoogle =
+        (Platform.OS === "web" && !!googleConfig?.web?.webClientId) ||
+        (Platform.OS === "ios" && !!googleConfig?.ios?.iosClientId) ||
+        (Platform.OS === "android" && !!googleConfig?.android?.androidClientId);
 
     if (user) {
         return (
@@ -89,13 +102,20 @@ export default function App() {
                 <Text style={styles.buttonText}>Login me Email</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-                style={[styles.button, styles.googleButton]}
-                onPress={() => promptAsync()}
-                disabled={!request}
-            >
-                <Text style={styles.buttonText}>Login me Google</Text>
-            </TouchableOpacity>
+            {canUseGoogle && (
+                <TouchableOpacity
+                    style={[styles.button, styles.googleButton]}
+                    onPress={() => promptAsync()}
+                    disabled={!request}
+                >
+                    <Text style={styles.buttonText}>Login me Google</Text>
+                </TouchableOpacity>
+            )}
+            {!canUseGoogle && (
+                <Text style={{ marginTop: 10, opacity: 0.8 }}>
+                    Vendos Client ID për platformën aktuale për të aktivizuar Google login.
+                </Text>
+            )}
         </View>
     );
 }
