@@ -77,6 +77,7 @@ export default function App() {
             </View>
         );
     }
+    const isWeb = Platform.OS === "web";
 
     return (
         <View style={styles.container}>
@@ -102,18 +103,21 @@ export default function App() {
                 <Text style={styles.buttonText}>Login me Email</Text>
             </TouchableOpacity>
 
-            {canUseGoogle && (
+            {isWeb && (
                 <TouchableOpacity
-                    style={[styles.button, styles.googleButton]}
+                    style={[styles.button, styles.googleButton, { opacity: request ? 1 : 0.6 }]}
                     onPress={() => promptAsync()}
                     disabled={!request}
                 >
-                    <Text style={styles.buttonText}>Login me Google</Text>
+                    <Text style={styles.buttonText}>
+                        {request ? "Login me Google" : "Google s’është gati (shiko Console)"}
+                    </Text>
                 </TouchableOpacity>
             )}
-            {!canUseGoogle && (
+
+            {!isWeb && (
                 <Text style={{ marginTop: 10, opacity: 0.8 }}>
-                    Vendos Client ID për platformën aktuale për të aktivizuar Google login.
+                    Google login është aktiv vetëm në Web në këtë fazë.
                 </Text>
             )}
         </View>
